@@ -1,0 +1,43 @@
+rules_version = '2';
+
+// Reglas de seguridad de Cloud Firestore para "Cuentas Claras".
+//
+// Modelo de datos remoto (espejo del modelo local offline-first):
+//   users/{uid}/people/{personId}
+//   users/{uid}/debts/{debtId}
+//   users/{uid}/payments/{paymentId}
+//
+// Regla general: cada usuario autenticado solo puede leer y escribir los
+// documentos que están DENTRO de su propio nodo users/{uid}. Nadie puede
+// leer ni escribir datos de otro usuario, ni siquiera coleccionar el uid
+// ajeno de forma indirecta (las reglas se evalúan contra el uid del token,
+// no contra un campo del documento, por lo que no se puede falsificar).
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    match /users/{userId} {
+      // El propio documento de usuario (si se llega a usar para metadata,
+      // por ejemplo el token de FCM) solo es visible para su dueño.
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+
+      match /people/{personId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /debts/{debtId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+
+      match /payments/{paymentId} {
+        allow read, write: if request.auth != null && request.auth.uid == userId;
+      }
+    }
+
+    // Cualquier otra ruta queda denegada por defecto (comportamiento
+    // implícito de Firestore cuando ninguna regla hace match), pero se deja
+    // explícito para que quede claro en la guía.
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}
